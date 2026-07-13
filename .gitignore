@@ -1,1 +1,17 @@
- 
+# Virtual environment
+backend/venv/
+
+# Environment variables (secrets)
+backend/.env
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Django
+backend/db.sqlite3
+backend/staticfiles/
+
+# OS files
+.DS_Store
+Thumbs.db
