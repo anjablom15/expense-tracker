@@ -5,6 +5,7 @@ import '../screens/add_expense_screen.dart';
 import '../screens/categories_screen.dart';
 import '../screens/budgets_screen.dart';
 import '../screens/dashboard_screen.dart';
+import '../screens/login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -57,6 +58,16 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _handleLogout() async {
+    await _apiService.logout();
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -87,6 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.pie_chart),
+            tooltip: 'View Dashboard Data',
             onPressed: () {
               Navigator.push(
                 context,
@@ -95,6 +107,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               );
             },
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Log Out',
+            onPressed: _handleLogout,
           ),
         ],
       ),
