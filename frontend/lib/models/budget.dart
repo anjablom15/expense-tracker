@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+//import 'package:flutter/foundation.dart';
 
 class Budget {
   final int id;
@@ -18,7 +18,7 @@ class Budget {
       id: json['id'],
       category: json['category'],
       categoryName: json['category_name'],
-      monthlyLimit: json['monthly_limit'],
+      monthlyLimit: double.parse(json['monthly_limit'].toString()),
     );
   }
 
