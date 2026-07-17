@@ -1,0 +1,142 @@
+import 'package:flutter/material.dart';
+import '../models/category.dart';
+import '../services/api_service.dart';
+
+class CategoriesScreen extends StatefulWidget {
+  const CategoriesScreen({super.key});
+
+  @override
+  State<CategoriesScreen> createState() => _CategoriesScreenState();
+}
+
+class _CategoriesScreenState extends State<CategoriesScreen> {
+  final _apiService = ApiService();
+  final _newCategoryController = TextEditingController();
+
+  List<Category> _categories = [];
+  bool _isLoading = true;
+  bool _isAdding = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final categories = await _apiService.getCategories();
+      setState(() {
+        _categories = categories;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Could not load categories';
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _handleAddCategory() async {
+    final name = _newCategoryController.text.trim();
+    if (name.isEmpty) return;
+
+    final alreadyExists = _categories.any(
+      (category) => category.name.toLowerCase() == name.toLowerCase(),
+    );
+
+    if (alreadyExists) {
+      setState(() {
+        _errorMessage = 'This category already exists';
+      });
+      return;
+    }
+
+    setState(() {
+      _isAdding = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final newCategory = Category(id: 0, name: name);
+      await _apiService.createCategory(newCategory);
+      _newCategoryController.clear();
+      await _loadCategories();
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Could not add category';
+      });
+    } finally {
+      setState(() {
+        _isAdding = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Categories')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _newCategoryController,
+                    decoration: const InputDecoration(
+                      labelText: 'New Category Name',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _isAdding ? null : _handleAddCategory,
+                  child: _isAdding
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.add),
+                ),
+              ],
+            ),
+            if (_errorMessage != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Text(
+                  _errorMessage!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _categories.isEmpty
+                  ? const Center(child: Text('No categories yet'))
+                  : ListView.builder(
+                      itemCount: _categories.length,
+                      itemBuilder: (context, index) {
+                        return ListTile(title: Text(_categories[index].name));
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
