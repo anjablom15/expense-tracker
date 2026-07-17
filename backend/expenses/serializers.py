@@ -12,6 +12,7 @@ class CategorySerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at']
 
 class ExpenseSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source='category.name', read_only=True)
     class Meta:
         model = Expense
         fields = ['id', 'category', 'category_name','amount', 'description', 'date', 'created_at']
