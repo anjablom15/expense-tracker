@@ -80,6 +80,17 @@ class ApiService {
     }
   }
 
+  Future<void> deleteExpense(int id) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/expenses/$id/'),
+      headers: await _getHeaders(),
+    );
+
+    if (response.statusCode != 204) {
+      throw Exception('Failed to delete expense');
+    }
+  }
+
   // =============== Categories ===============
 
   Future<List<Category>> getCategories() async {
@@ -110,6 +121,16 @@ class ApiService {
     }
   }
 
+  Future<void> deleteCategory(int id) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/categories/$id/'),
+      headers: await _getHeaders(),
+    );
+
+    if (response.statusCode != 204) {
+      throw Exception('Failed to delete category');
+    }
+  }
   // =============== Budget ===============
 
   Future<List<Budget>> getBudgets() async {
@@ -137,6 +158,17 @@ class ApiService {
       return Budget.fromJson(jsonDecode(response.body));
     } else {
       throw Exception('Failed to create budget');
+    }
+  }
+
+  Future<void> deleteBudget(int id) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/budgets/$id/'),
+      headers: await _getHeaders(),
+    );
+
+    if (response.statusCode != 204) {
+      throw Exception('Failed to delete budget');
     }
   }
 }

@@ -107,6 +107,39 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
     }
   }
 
+  Future<void> _confirmDeleteBudget(Budget budget, int index) async {
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Delete Budget'),
+            content: Text('Are you sure you want to delete this budget?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed) return;
+    try {
+      await _apiService.deleteBudget(budget.id);
+      setState(() {
+        _budgets.removeAt(index);
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Could not delete budget';
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -178,11 +211,25 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                               final budget = _budgets[index];
                               return ListTile(
                                 title: Text(budget.categoryName),
-                                trailing: Text(
-                                  'R${budget.monthlyLimit.toStringAsFixed(2)}/month',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'R${budget.monthlyLimit.toStringAsFixed(2)}/month',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.delete_outline,
+                                        color: Colors.red,
+                                      ),
+                                      tooltip: 'Delete budget',
+                                      onPressed: () =>
+                                          _confirmDeleteBudget(budget, index),
+                                    ),
+                                  ],
                                 ),
                               );
                             },

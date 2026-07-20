@@ -58,6 +58,41 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _confirmDeleteExpense(Expense expense, int index) async {
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Delete Expense'),
+            content: const Text(
+              'Are you sure you want to delete this expense?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed) return;
+    try {
+      await _apiService.deleteExpense(expense.id);
+      setState(() {
+        _expenses.removeAt(index);
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Could not delete expense';
+      });
+    }
+  }
+
   Future<void> _handleLogout() async {
     await _apiService.logout();
     if (!mounted) return;
@@ -148,9 +183,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   : expense.categoryName,
             ),
             subtitle: Text('${expense.categoryName} [${expense.date}]'),
-            trailing: Text(
-              'R${expense.amount.toStringAsFixed(2)}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'R${expense.amount.toStringAsFixed(2)}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  tooltip: 'Delete expense',
+                  onPressed: () => _confirmDeleteExpense(expense, index),
+                ),
+              ],
             ),
           );
         },

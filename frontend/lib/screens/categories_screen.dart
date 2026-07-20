@@ -80,6 +80,41 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     }
   }
 
+  Future<void> _confirmDeleteCategory(Category category, int index) async {
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Delete Category'),
+            content: const Text(
+              'Are you sure you want to delete this category?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed) return;
+    try {
+      await _apiService.deleteCategory(category.id);
+      setState(() {
+        _categories.removeAt(index);
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Could not delete category';
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -130,7 +165,19 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   : ListView.builder(
                       itemCount: _categories.length,
                       itemBuilder: (context, index) {
-                        return ListTile(title: Text(_categories[index].name));
+                        final category = _categories[index];
+                        return ListTile(
+                          title: Text(category.name),
+                          trailing: IconButton(
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              color: Colors.red,
+                            ),
+                            tooltip: 'Delete Category',
+                            onPressed: () =>
+                                _confirmDeleteCategory(category, index),
+                          ),
+                        );
                       },
                     ),
             ),
