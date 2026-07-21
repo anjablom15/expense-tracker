@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/expense.dart';
+import '../models/budget.dart';
 import '../services/api_service.dart';
 import '../screens/add_expense_screen.dart';
 import '../screens/categories_screen.dart';
@@ -18,6 +19,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _apiService = ApiService();
 
   List<Expense> _expenses = [];
+  List<Budget> _budgets = [];
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -35,8 +37,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       final expenses = await _apiService.getExpenses();
+      final budgets = await _apiService.getBudgets();
       setState(() {
         _expenses = expenses;
+        _budgets = budgets;
         _isLoading = false;
       });
     } catch (e) {
@@ -116,6 +120,25 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  String? _budgetSummaryText() {
+    if (_budgets.isEmpty) return null;
+
+    int overBudgetCount = 0;
+    for (final budget in _budgets) {
+      final spent = _expenses
+          .where((expense) => expense.category == budget.category)
+          .fold(0.0, (sum, expense) => sum + expense.amount);
+      if (spent > budget.monthlyLimit) {
+        overBudgetCount++;
+      }
+    }
+
+    if (overBudgetCount == 0) {
+      return '${_budgets.length} of ${_budgets.length} budgets on track';
+    }
+    return '$overBudgetCount of ${_budgets.length} budgets over limit';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -184,41 +207,63 @@ class _HomeScreenState extends State<HomeScreen> {
       return const Center(child: Text('No expenses yet. Add you first one!'));
     }
 
-    return RefreshIndicator(
-      onRefresh: _loadExpenses,
-      child: ListView.builder(
-        itemCount: _expenses.length,
-        itemBuilder: (context, index) {
-          final expense = _expenses[index];
-          return ListTile(
-            title: Text(
-              expense.description.isNotEmpty
-                  ? expense.description
-                  : expense.categoryName,
+    final summaryText = _budgetSummaryText();
+
+    return Column(
+      children: [
+        if (summaryText != null)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            color: Colors.teal.shade50,
+            child: Text(
+              summaryText,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.w500),
             ),
-            subtitle: Text('${expense.categoryName} [${expense.date}]'),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'R${expense.amount.toStringAsFixed(2)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined),
-                  tooltip: 'Edit expense',
-                  onPressed: () => _openEditExpenseScreen(expense),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                  tooltip: 'Delete expense',
-                  onPressed: () => _confirmDeleteExpense(expense, index),
-                ),
-              ],
+          ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _loadExpenses,
+            child: ListView.builder(
+              itemCount: _expenses.length,
+              itemBuilder: (context, index) {
+                final expense = _expenses[index];
+                return ListTile(
+                  title: Text(
+                    expense.description.isNotEmpty
+                        ? expense.description
+                        : expense.categoryName,
+                  ),
+                  subtitle: Text('${expense.categoryName} [${expense.date}]'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'R${expense.amount.toStringAsFixed(2)}',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined),
+                        tooltip: 'Edit expense',
+                        onPressed: () => _openEditExpenseScreen(expense),
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.red,
+                        ),
+                        tooltip: 'Delete expense',
+                        onPressed: () => _confirmDeleteExpense(expense, index),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
-          );
-        },
-      ),
+          ),
+        ),
+      ],
     );
   }
 }
