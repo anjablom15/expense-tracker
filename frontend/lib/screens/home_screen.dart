@@ -149,7 +149,7 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.category),
             tooltip: 'Manage Categories',
             onPressed: () async {
-              final result = await Navigator.push(
+              await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => const CategoriesScreen(),
