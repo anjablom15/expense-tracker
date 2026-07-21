@@ -4,7 +4,9 @@ import '../models/expense.dart';
 import '../services/api_service.dart';
 
 class AddExpenseScreen extends StatefulWidget {
-  const AddExpenseScreen({super.key});
+  final Expense? existingExpense;
+
+  const AddExpenseScreen({super.key, this.existingExpense});
 
   @override
   State<AddExpenseScreen> createState() => _AddExpenseScreenState();
@@ -23,9 +25,17 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   bool _isSaving = false;
   String? _errorMessage;
 
+  bool get _isEditing => widget.existingExpense != null;
+
   @override
   void initState() {
     super.initState();
+    if (_isEditing) {
+      final expense = widget.existingExpense!;
+      _amountController.text = expense.amount.toString();
+      _descriptionController.text = expense.description;
+      _selectedDate = DateTime.parse(expense.date);
+    }
     _loadCategories();
   }
 
@@ -35,7 +45,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       setState(() {
         _categories = categories;
         _isLoadingCategories = false;
-        if (categories.isNotEmpty) {
+        if (_isEditing) {
+          _selectedCategory = categories.firstWhere(
+            (category) => category.id == widget.existingExpense!.category,
+            orElse: () => categories.first,
+          );
+        } else if (categories.isNotEmpty) {
           _selectedCategory = categories.first;
         }
       });
@@ -84,21 +99,29 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     });
 
     try {
-      final newExpense = Expense(
-        id: 0, // Placeholder, since it is never sent back to Django.
+      final expense = Expense(
+        id: _isEditing
+            ? widget.existingExpense!.id
+            : 0, // Placeholder, since it is never sent back to Django.
         category: _selectedCategory!.id,
         categoryName: _selectedCategory!.name,
         amount: amount,
         description: _descriptionController.text,
         date: _selectedDate.toIso8601String().split('T')[0],
       );
-      await _apiService.createExpense(newExpense);
+      if (_isEditing) {
+        await _apiService.updateExpense(expense.id, expense);
+      } else {
+        await _apiService.createExpense(expense);
+      }
 
       if (!mounted) return;
       Navigator.pop(context, true);
     } catch (e) {
       setState(() {
-        _errorMessage = 'Could not save expense';
+        _errorMessage = _isEditing
+            ? 'Could not update expense'
+            : 'Could not save expense';
         _isSaving = false;
       });
     }
@@ -107,7 +130,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Expense')),
+      appBar: AppBar(title: Text(_isEditing ? 'Edit Expense' : 'Add Expense')),
       body: _isLoadingCategories
           ? const Center(child: CircularProgressIndicator())
           : Padding(
@@ -181,7 +204,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                             width: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Save Expense'),
+                        : Text(_isEditing ? 'Update Expense' : 'Save Expense'),
                   ),
                 ],
               ),

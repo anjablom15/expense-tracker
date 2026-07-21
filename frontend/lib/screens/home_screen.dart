@@ -103,6 +103,19 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _openEditExpenseScreen(Expense expense) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddExpenseScreen(existingExpense: expense),
+      ),
+    );
+
+    if (result == true) {
+      _loadExpenses();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -112,13 +125,14 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             icon: const Icon(Icons.category),
             tooltip: 'Manage Categories',
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              final result = await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => const CategoriesScreen(),
                 ),
               );
+              _loadExpenses();
             },
           ),
           IconButton(
@@ -189,6 +203,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text(
                   'R${expense.amount.toStringAsFixed(2)}',
                   style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  tooltip: 'Edit expense',
+                  onPressed: () => _openEditExpenseScreen(expense),
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete_outline, color: Colors.red),

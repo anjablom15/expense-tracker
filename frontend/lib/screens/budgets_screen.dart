@@ -22,6 +22,9 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
   bool _isAdding = false;
   String? _errorMessage;
 
+  Budget? _editingBudget;
+  bool get _isEditing => _editingBudget != null;
+
   @override
   void initState() {
     super.initState();
@@ -41,8 +44,10 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
       setState(() {
         _budgets = budgets;
         _categories = categories;
-        _selectedCategory = categories.isNotEmpty ? categories.first : null;
         _isLoading = false;
+        if (!_isEditing && categories.isNotEmpty) {
+          _selectedCategory = categories.first;
+        }
       });
     } catch (e) {
       setState(() {
@@ -69,7 +74,9 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
     }
 
     final alreadyExists = _budgets.any(
-      (budget) => budget.category == _selectedCategory!.id,
+      (budget) =>
+          budget.category == _selectedCategory!.id &&
+          budget.id != _editingBudget?.id,
     );
 
     if (alreadyExists) {
@@ -85,20 +92,26 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
     });
 
     try {
-      final newBudget = Budget(
-        id: 0,
+      final budget = Budget(
+        id: _isEditing ? _editingBudget!.id : 0,
         category: _selectedCategory!.id,
         categoryName: _selectedCategory!.name,
         monthlyLimit: limit,
       );
 
-      await _apiService.createBudget(newBudget);
+      if (_isEditing) {
+        await _apiService.updateBudget(budget.id, budget);
+      } else {
+        await _apiService.createBudget(budget);
+      }
       _limitController.clear();
+      _editingBudget = null;
       await _loadBudgets();
     } catch (e) {
-      print(e);
       setState(() {
-        _errorMessage = 'Could not add budget';
+        _errorMessage = _isEditing
+            ? 'Could not update budget'
+            : 'Could not save budget';
       });
     } finally {
       setState(() {
@@ -140,10 +153,30 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
     }
   }
 
+  void _startEditingBudget(Budget budget) {
+    setState(() {
+      _editingBudget = budget;
+      _limitController.text = budget.monthlyLimit.toString();
+      _selectedCategory = _categories.firstWhere(
+        (category) => category.id == budget.category,
+        orElse: () => _categories.first,
+      );
+      _errorMessage = null;
+    });
+  }
+
+  void _cancelEditing() {
+    setState(() {
+      _editingBudget = null;
+      _limitController.clear();
+      _errorMessage = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Budgets")),
+      appBar: AppBar(title: Text(_isEditing ? 'Edit Budget' : 'Add Budget')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Padding(
@@ -190,8 +223,16 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                             width: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Set Budget'),
+                        : Text(_isEditing ? 'Update Budget' : 'Save Budget'),
                   ),
+                  if (_isEditing) ...[
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      tooltip: 'Cancel edit',
+                      onPressed: _cancelEditing,
+                    ),
+                  ],
 
                   if (_errorMessage != null)
                     Padding(
@@ -219,6 +260,12 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                                       style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                       ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.edit_outlined),
+                                      tooltip: 'Edit Budget',
+                                      onPressed: () =>
+                                          _startEditingBudget(budget),
                                     ),
                                     IconButton(
                                       icon: const Icon(

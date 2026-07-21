@@ -91,6 +91,20 @@ class ApiService {
     }
   }
 
+  Future<Expense> updateExpense(int id, Expense expense) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/expenses/$id/'),
+      headers: await _getHeaders(),
+      body: jsonEncode(expense.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+      return Expense.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception('Failed to update expense');
+    }
+  }
+
   // =============== Categories ===============
 
   Future<List<Category>> getCategories() async {
@@ -131,6 +145,21 @@ class ApiService {
       throw Exception('Failed to delete category');
     }
   }
+
+  Future<Category> updateCategory(int id, Category category) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/categories/$id/'),
+      headers: await _getHeaders(),
+      body: jsonEncode(category.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+      return Category.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception('Failed to update categories');
+    }
+  }
+
   // =============== Budget ===============
 
   Future<List<Budget>> getBudgets() async {
@@ -169,6 +198,20 @@ class ApiService {
 
     if (response.statusCode != 204) {
       throw Exception('Failed to delete budget');
+    }
+  }
+
+  Future<Budget> updateBudget(int id, Budget budget) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/budgets/$id/'),
+      headers: await _getHeaders(),
+      body: jsonEncode(budget.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+      return Budget.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception('Failed to update Budget');
     }
   }
 }

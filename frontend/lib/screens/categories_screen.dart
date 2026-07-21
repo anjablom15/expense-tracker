@@ -18,10 +18,29 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   bool _isAdding = false;
   String? _errorMessage;
 
+  Category? _editingCategory;
+  bool get _isEditing => _editingCategory != null;
+
   @override
   void initState() {
     super.initState();
     _loadCategories();
+  }
+
+  void _startEditingCategory(Category category) {
+    setState(() {
+      _editingCategory = category;
+      _newCategoryController.text = category.name;
+      _errorMessage = null;
+    });
+  }
+
+  void _cancelEditing() {
+    setState(() {
+      _editingCategory = null;
+      _newCategoryController.clear();
+      _errorMessage = null;
+    });
   }
 
   Future<void> _loadCategories() async {
@@ -49,7 +68,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     if (name.isEmpty) return;
 
     final alreadyExists = _categories.any(
-      (category) => category.name.toLowerCase() == name.toLowerCase(),
+      (category) =>
+          category.name.toLowerCase() == name.toLowerCase() &&
+          category.id != _editingCategory?.id,
     );
 
     if (alreadyExists) {
@@ -65,13 +86,23 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     });
 
     try {
-      final newCategory = Category(id: 0, name: name);
-      await _apiService.createCategory(newCategory);
+      final category = Category(
+        id: _isEditing ? _editingCategory!.id : 0,
+        name: name,
+      );
+      if (_isEditing) {
+        await _apiService.updateCategory(category.id, category);
+      } else {
+        await _apiService.createCategory(category);
+      }
       _newCategoryController.clear();
+      _editingCategory = null;
       await _loadCategories();
     } catch (e) {
       setState(() {
-        _errorMessage = 'Could not add category';
+        _errorMessage = _isEditing
+            ? 'Could not update category'
+            : 'Could not save category';
       });
     } finally {
       setState(() {
@@ -118,7 +149,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Categories')),
+      appBar: AppBar(
+        title: Text(_isEditing ? 'Edit Category' : 'Add Category'),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -144,8 +177,16 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                           width: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.add),
+                      : Text(_isEditing ? 'Update Category' : 'Save Category'),
                 ),
+                if (_isEditing) ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    tooltip: 'Cancel edit',
+                    onPressed: _cancelEditing,
+                  ),
+                ],
               ],
             ),
             if (_errorMessage != null)
@@ -168,14 +209,25 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                         final category = _categories[index];
                         return ListTile(
                           title: Text(category.name),
-                          trailing: IconButton(
-                            icon: const Icon(
-                              Icons.delete_outline,
-                              color: Colors.red,
-                            ),
-                            tooltip: 'Delete Category',
-                            onPressed: () =>
-                                _confirmDeleteCategory(category, index),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit_outlined),
+                                tooltip: 'Edit Category',
+                                onPressed: () =>
+                                    _startEditingCategory(category),
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.red,
+                                ),
+                                tooltip: 'Delete Category',
+                                onPressed: () =>
+                                    _confirmDeleteCategory(category, index),
+                              ),
+                            ],
                           ),
                         );
                       },
