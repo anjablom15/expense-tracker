@@ -64,8 +64,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   double _spentForCategory(int categoryId) {
+    final now = DateTime.now();
+
     return _expenses
-        .where((expense) => expense.category == categoryId)
+        .where((expense) {
+          final expenseDate = DateTime.parse(expense.date);
+          return expense.category == categoryId &&
+              expenseDate.year == now.year &&
+              expenseDate.month == now.month;
+        })
         .fold(0.0, (sum, expense) => sum + expense.amount);
   }
 

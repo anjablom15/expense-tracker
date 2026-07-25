@@ -122,11 +122,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String? _budgetSummaryText() {
     if (_budgets.isEmpty) return null;
-
+    final now = DateTime.now();
     int overBudgetCount = 0;
     for (final budget in _budgets) {
       final spent = _expenses
-          .where((expense) => expense.category == budget.category)
+          .where((expense) {
+            final expenseDate = DateTime.parse(expense.date);
+            return expense.category == budget.category &&
+                expenseDate.year == now.year &&
+                expenseDate.month == now.month;
+          })
           .fold(0.0, (sum, expense) => sum + expense.amount);
       if (spent > budget.monthlyLimit) {
         overBudgetCount++;
@@ -137,6 +142,36 @@ class _HomeScreenState extends State<HomeScreen> {
       return '${_budgets.length} of ${_budgets.length} budgets on track';
     }
     return '$overBudgetCount of ${_budgets.length} budgets over limit';
+  }
+
+  Map<String, List<Expense>> _groupExpensesByMonth() {
+    final Map<String, List<Expense>> grouped = {};
+
+    for (final expense in _expenses) {
+      final date = DateTime.parse(expense.date);
+      final monthKey = '${_monthName(date.month)} ${date.year}';
+
+      grouped.putIfAbsent(monthKey, () => []);
+      grouped[monthKey]!.add(expense);
+    }
+    return grouped;
+  }
+
+  String _monthName(int month) {
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'November',
+      'December',
+    ];
+    return months[month - 1];
   }
 
   @override
@@ -204,10 +239,12 @@ class _HomeScreenState extends State<HomeScreen> {
       return Center(child: Text(_errorMessage!));
     }
     if (_expenses.isEmpty) {
-      return const Center(child: Text('No expenses yet. Add you first one!'));
+      return const Center(child: Text('No expenses yet. Add your first one!'));
     }
 
     final summaryText = _budgetSummaryText();
+    final grouped = _groupExpensesByMonth();
+    final monthKeys = grouped.keys.toList();
 
     return Column(
       children: [
@@ -226,38 +263,64 @@ class _HomeScreenState extends State<HomeScreen> {
           child: RefreshIndicator(
             onRefresh: _loadExpenses,
             child: ListView.builder(
-              itemCount: _expenses.length,
-              itemBuilder: (context, index) {
-                final expense = _expenses[index];
-                return ListTile(
-                  title: Text(
-                    expense.description.isNotEmpty
-                        ? expense.description
-                        : expense.categoryName,
-                  ),
-                  subtitle: Text('${expense.categoryName} [${expense.date}]'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'R${expense.amount.toStringAsFixed(2)}',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.edit_outlined),
-                        tooltip: 'Edit expense',
-                        onPressed: () => _openEditExpenseScreen(expense),
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.delete_outline,
-                          color: Colors.red,
+              itemCount: monthKeys.length,
+              itemBuilder: (context, monthIndex) {
+                final monthKey = monthKeys[monthIndex];
+                final monthExpenses = grouped[monthKey]!;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                      child: Text(
+                        monthKey,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey.shade700,
                         ),
-                        tooltip: 'Delete expense',
-                        onPressed: () => _confirmDeleteExpense(expense, index),
                       ),
-                    ],
-                  ),
+                    ),
+                    ...monthExpenses.map((expense) {
+                      final index = _expenses.indexOf(expense);
+                      return ListTile(
+                        title: Text(
+                          expense.description.isNotEmpty
+                              ? expense.description
+                              : expense.categoryName,
+                        ),
+                        subtitle: Text(
+                          '${expense.categoryName} [${expense.date}]',
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'R${expense.amount.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined),
+                              tooltip: 'Edit expense',
+                              onPressed: () => _openEditExpenseScreen(expense),
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: Colors.red,
+                              ),
+                              tooltip: 'Delete expense',
+                              onPressed: () =>
+                                  _confirmDeleteExpense(expense, index),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
                 );
               },
             ),
