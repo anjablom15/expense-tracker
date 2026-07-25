@@ -7,7 +7,8 @@ import '../models/expense.dart';
 import '../models/income.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://127.0.0.1:8000/api';
+  static const String baseUrl =
+      'https://expense-tracker-api-ut1p.onrender.com/api';
 
   // Every request, except login itself, needs to prove who the user is,
   // by attaching the access token in a specific format: Authorization: Bearer<token>.
@@ -30,7 +31,7 @@ class ApiService {
 
   Future<bool> login(String username, String password) async {
     final response = await http.post(
-      Uri.parse('http://127.0.0.1:8000/api/token/'),
+      Uri.parse('https://expense-tracker-api-ut1p.onrender.com/api/token/'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'username': username, 'password': password}),
     );
