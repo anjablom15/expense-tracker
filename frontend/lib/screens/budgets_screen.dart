@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/budget.dart';
 import '../models/category.dart';
+import '../models/income.dart';
 import '../services/api_service.dart';
 
 class BudgetsScreen extends StatefulWidget {
@@ -25,6 +26,10 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
   Budget? _editingBudget;
   bool get _isEditing => _editingBudget != null;
 
+  Income? _income;
+  final _incomeController = TextEditingController();
+  bool _isEditingIncome = false;
+
   @override
   void initState() {
     super.initState();
@@ -40,10 +45,12 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
     try {
       final budgets = await _apiService.getBudgets();
       final categories = await _apiService.getCategories();
+      final income = await _apiService.getIncome();
 
       setState(() {
         _budgets = budgets;
         _categories = categories;
+        _income = income;
         _isLoading = false;
         if (!_isEditing && categories.isNotEmpty) {
           _selectedCategory = categories.first;
@@ -173,6 +180,126 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
     });
   }
 
+  double _totalAllocated() {
+    return _budgets.fold(0.0, (sum, budget) => sum + budget.monthlyLimit);
+  }
+
+  void _startEditingIncome() {
+    setState(() {
+      _isEditingIncome = true;
+      _incomeController.text = _income?.monthlyIncome.toString() ?? '0';
+    });
+  }
+
+  Future<void> _saveIncome() async {
+    final amount = double.tryParse(_incomeController.text);
+    if (amount == null || amount < 0) {
+      setState(() {
+        _errorMessage = 'Please enter a valid income amount';
+      });
+      return;
+    }
+
+    try {
+      final updatedIncome = await _apiService.updateIncome(amount);
+      setState(() {
+        _income = updatedIncome;
+        _isEditingIncome = false;
+        _errorMessage = null;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Could not update income';
+      });
+    }
+  }
+
+  Widget _buildIncomeSummary() {
+    final income = _income?.monthlyIncome ?? 0;
+    final allocated = _totalAllocated();
+    final remaining = income - allocated;
+    final ratio = income > 0 ? (allocated / income).clamp(0.0, 1.0) : 0.0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.teal.shade50,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Monthly Income',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              if (!_isEditingIncome)
+                TextButton(
+                  onPressed: _startEditingIncome,
+                  child: const Text('Edit'),
+                ),
+            ],
+          ),
+          if (_isEditingIncome) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _incomeController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      prefixText: 'R',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _saveIncome,
+                  child: const Text('Save'),
+                ),
+              ],
+            ),
+          ] else ...[
+            Text(
+              'R${income.toStringAsFixed(2)}',
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: ratio,
+                minHeight: 8,
+                backgroundColor: Colors.grey.shade300,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  remaining < 0 ? Colors.red : Colors.teal,
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              remaining < 0
+                  ? 'R${(-remaining).toStringAsFixed(2)} over-allocated'
+                  : 'R${remaining.toStringAsFixed(2)} unallocated · R${allocated.toStringAsFixed(2)} budgeted',
+              style: TextStyle(
+                fontSize: 13,
+                color: remaining < 0 ? Colors.red : Colors.grey.shade700,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -184,6 +311,8 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  _buildIncomeSummary(),
+                  const SizedBox(height: 20),
                   DropdownButtonFormField<Category>(
                     value: _selectedCategory,
                     decoration: const InputDecoration(

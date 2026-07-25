@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, Expense, Budget
+from .models import Category, Expense, Budget, Income
 
 # Die velde -> die velde wat jy wil hê die serializer moet insluit. Die read_only_fields -> die velde wat jy nie wil hê die gebruiker moet kan verander nie.
 #              user is nie in die fields nie, want dit sal outomaties ingestel word op die ingelogde gebruiker in die view.
@@ -23,4 +23,10 @@ class BudgetSerializer(serializers.ModelSerializer):
     class Meta:
         model = Budget
         fields = ['id', 'category', 'category_name', 'monthly_limit']
+        read_only_fields = ['id']
+
+class IncomeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Income
+        fields = ['id', 'monthly_income']
         read_only_fields = ['id']

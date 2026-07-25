@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/budget.dart';
 import '../models/category.dart';
 import '../models/expense.dart';
+import '../models/income.dart';
 
 class ApiService {
   static const String baseUrl = 'http://127.0.0.1:8000/api';
@@ -212,6 +213,35 @@ class ApiService {
       return Budget.fromJson(jsonDecode(response.body));
     } else {
       throw Exception('Failed to update Budget');
+    }
+  }
+
+  // =============== Income ===============
+
+  Future<Income> getIncome() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/income/'),
+      headers: await _getHeaders(),
+    );
+
+    if (response.statusCode == 200) {
+      return Income.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception('Failed to load income');
+    }
+  }
+
+  Future<Income> updateIncome(double amount) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/income/'),
+      headers: await _getHeaders(),
+      body: jsonEncode({'monthly_income': amount}),
+    );
+
+    if (response.statusCode == 200) {
+      return Income.fromJson(jsonDecode(response.body));
+    } else {
+      throw Exception('Failed to update income');
     }
   }
 }

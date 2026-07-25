@@ -1,6 +1,8 @@
+from rest_framework.views import APIView
+from rest_framework.response import Response
 from rest_framework import viewsets, permissions
-from .models import Category, Expense, Budget
-from .serializers import CategorySerializer, ExpenseSerializer, BudgetSerializer
+from .models import Category, Expense, Budget, Income
+from .serializers import CategorySerializer, ExpenseSerializer, BudgetSerializer, IncomeSerializer
 
 # Die ModelViewSet is a Django REST Framework shortcut that automatically creates API behavior for a model - instead of writing 5 seperate functions.
 
@@ -34,3 +36,25 @@ class BudgetViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+class IncomeView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        income, created = Income.objects.get_or_create(
+            user=request.user,
+            defaults={'monthly_income': 0}
+        )
+        serializer = IncomeSerializer(income)
+        return Response(serializer.data)
+
+    def put(self, request):
+        income, created = Income.objects.get_or_create(
+            user=request.user,
+            defaults={'monthly_income': 0}
+        )
+        serializer = IncomeSerializer(income, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)

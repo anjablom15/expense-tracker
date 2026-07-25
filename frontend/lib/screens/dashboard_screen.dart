@@ -251,10 +251,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     value: amount,
                     color: colors[index % colors.length],
                     title: '${percentage.toStringAsFixed(0)}%',
-                    radius: 80,
-                    titleStyle: const TextStyle(
-                      color: Colors.white,
+                    radius: 70,
+                    titlePositionPercentageOffset: 1.3,
+                    titleStyle: TextStyle(
+                      color: colors[index % colors.length],
                       fontWeight: FontWeight.bold,
+                      fontSize: 12,
                     ),
                   );
                 }),

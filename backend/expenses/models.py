@@ -38,3 +38,10 @@ class Budget(models.Model):
     
     def __str__(self):
         return f"{self.category.name} budget: {self.monthly_limit}"
+
+class Income(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='income')
+    monthly_income = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.user.username}'s income: {self.monthly_income}"  
