@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'rest_framework_simplejwt',
+    'drf_spectacular',
     'expenses',
 ]
 
@@ -134,6 +135,13 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Expense Tracker API',
+    'DESCRIPTION': 'A REST API for tracking personal expenses, categories, and budgets.',
+    'VERSION': '1.0.0',
 }
 
 SIMPLE_JWT = {
