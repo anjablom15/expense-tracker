@@ -17,8 +17,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<Budget> _budgets = [];
   bool _isLoading = true;
   String? _errorMessage;
+  DateTime _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
 
-  @override
   @override
   void initState() {
     super.initState();
@@ -49,7 +49,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Map<String, double> _totalsByCategory() {
     final Map<String, double> totals = {};
-    for (final expense in _expenses) {
+    for (final expense in _expensesForSelectedMonth()) {
       totals.update(
         expense.categoryName,
         (existing) => existing + expense.amount,
@@ -60,20 +60,55 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   double _totalSpent() {
-    return _expenses.fold(0.0, (sum, expense) => sum + expense.amount);
+    return _expensesForSelectedMonth().fold(
+      0.0,
+      (sum, expense) => sum + expense.amount,
+    );
   }
 
   double _spentForCategory(int categoryId) {
-    final now = DateTime.now();
-
-    return _expenses
-        .where((expense) {
-          final expenseDate = DateTime.parse(expense.date);
-          return expense.category == categoryId &&
-              expenseDate.year == now.year &&
-              expenseDate.month == now.month;
-        })
+    return _expensesForSelectedMonth()
+        .where((expense) => expense.category == categoryId)
         .fold(0.0, (sum, expense) => sum + expense.amount);
+  }
+
+  List<DateTime> _availableMonths() {
+    final Set<DateTime> months = {};
+
+    for (final expense in _expenses) {
+      final date = DateTime.parse(expense.date);
+      months.add(DateTime(date.year, date.month));
+    }
+
+    final list = months.toList();
+    list.sort((a, b) => b.compareTo(a));
+    return list;
+  }
+
+  List<Expense> _expensesForSelectedMonth() {
+    return _expenses.where((expense) {
+      final date = DateTime.parse(expense.date);
+      return date.year == _selectedMonth.year &&
+          date.month == _selectedMonth.month;
+    }).toList();
+  }
+
+  String _monthLabel(DateTime date) {
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return '${months[date.month - 1]} ${date.year}';
   }
 
   Widget _buildBudgetSummary() {
@@ -158,6 +193,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildDashboard() {
     final totals = _totalsByCategory();
     final total = _totalSpent();
+    final availableMonths = _availableMonths();
+
     final colors = [
       Colors.teal,
       Colors.orange,
@@ -174,6 +211,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          DropdownButtonFormField<DateTime>(
+            value: _selectedMonth,
+            decoration: const InputDecoration(
+              labelText: 'Month',
+              border: OutlineInputBorder(),
+            ),
+            items: availableMonths.map((month) {
+              return DropdownMenuItem(
+                value: month,
+                child: Text(_monthLabel(month)),
+              );
+            }).toList(),
+            onChanged: (month) {
+              if (month != null) {
+                setState(() {
+                  _selectedMonth = month;
+                });
+              }
+            },
+          ),
+          const SizedBox(height: 20),
           _buildBudgetSummary(),
           Text(
             'Total spent: R${total.toStringAsFixed(2)}',
