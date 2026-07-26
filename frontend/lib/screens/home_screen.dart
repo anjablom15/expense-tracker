@@ -36,14 +36,22 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
+      print('about to get expenses');
       final expenses = await _apiService.getExpenses();
+      print('got expenses: ${expenses.length}');
+
+      print('about to get budgets');
       final budgets = await _apiService.getBudgets();
+      print('got budgets: ${budgets.length}');
+
       setState(() {
         _expenses = expenses;
         _budgets = budgets;
         _isLoading = false;
       });
+      print('setState done');
     } catch (e) {
+      print('EXPENSES ERROR: $e');
       setState(() {
         _errorMessage = 'Could not load expenses';
         _isLoading = false;
@@ -168,6 +176,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'July',
       'August',
       'September',
+      'October',
       'November',
       'December',
     ];

@@ -3,6 +3,7 @@ import '../models/budget.dart';
 import '../models/category.dart';
 import '../models/income.dart';
 import '../services/api_service.dart';
+import '../utils/budget_period.dart';
 
 class BudgetsScreen extends StatefulWidget {
   const BudgetsScreen({super.key});
@@ -30,6 +31,10 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
   final _incomeController = TextEditingController();
   bool _isEditingIncome = false;
 
+  DateTime _currentPeriodStart = DateTime.now();
+  final _cycleDayController = TextEditingController();
+  bool _isEditingCycleDay = false;
+
   @override
   void initState() {
     super.initState();
@@ -43,20 +48,25 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
     });
 
     try {
-      final budgets = await _apiService.getBudgets();
-      final categories = await _apiService.getCategories();
       final income = await _apiService.getIncome();
+      final periodStart = getCurrentPeriodStart(income.budgetCycleDay);
+      final periodStartStr = formatDate(periodStart);
+
+      final budgets = await _apiService.getBudgets(periodStart: periodStartStr);
+      final categories = await _apiService.getCategories();
 
       setState(() {
+        _income = income;
+        _currentPeriodStart = periodStart;
         _budgets = budgets;
         _categories = categories;
-        _income = income;
         _isLoading = false;
         if (!_isEditing && categories.isNotEmpty) {
           _selectedCategory = categories.first;
         }
       });
     } catch (e) {
+      print('BUDGETS ERROR: $e');
       setState(() {
         _errorMessage = 'Could not load budgets';
         _isLoading = false;
@@ -104,6 +114,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
         category: _selectedCategory!.id,
         categoryName: _selectedCategory!.name,
         monthlyLimit: limit,
+        periodStart: formatDate(_currentPeriodStart),
       );
 
       if (_isEditing) {
@@ -201,12 +212,18 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
     }
 
     try {
-      final updatedIncome = await _apiService.updateIncome(amount);
+      final updated = Income(
+        id: _income!.id,
+        monthlyIncome: amount,
+        budgetCycleDay: _income?.budgetCycleDay ?? 1,
+      );
+      final updatedIncome = await _apiService.updateIncome(updated);
       setState(() {
         _income = updatedIncome;
         _isEditingIncome = false;
         _errorMessage = null;
       });
+      await _loadBudgets();
     } catch (e) {
       setState(() {
         _errorMessage = 'Could not update income';
@@ -300,6 +317,60 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
     );
   }
 
+  Widget _buildCycleDaySetting() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12, bottom: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Budget period: ${formatDate(_currentPeriodStart)} to ${formatDate(getPeriodEnd(_currentPeriodStart))}',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+            ),
+          ),
+          if (!_isEditingCycleDay)
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _isEditingCycleDay = true;
+                  _cycleDayController.text =
+                      _income?.budgetCycleDay.toString() ?? '1';
+                });
+              },
+              child: const Text('Change'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _saveCycleDay() async {
+    final day = int.tryParse(_cycleDayController.text);
+    if (day == null || day < 1 || day > 31) {
+      setState(() {
+        _errorMessage = 'Please enter a day between 1 and 31';
+      });
+      return;
+    }
+
+    try {
+      final updated = Income(
+        id: _income!.id,
+        monthlyIncome: _income!.monthlyIncome,
+        budgetCycleDay: day,
+      );
+      await _apiService.updateIncome(updated);
+      setState(() {
+        _isEditingCycleDay = false;
+      });
+      await _loadBudgets();
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Could not update budget cycle day';
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -312,6 +383,31 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _buildIncomeSummary(),
+                  _buildCycleDaySetting(),
+                  if (_isEditingCycleDay)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _cycleDayController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Cycle start day (1-31)',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: _saveCycleDay,
+                            child: const Text('Save'),
+                          ),
+                        ],
+                      ),
+                    ),
                   const SizedBox(height: 20),
                   DropdownButtonFormField<Category>(
                     value: _selectedCategory,

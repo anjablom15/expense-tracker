@@ -4,6 +4,7 @@ from rest_framework import viewsets, permissions
 from django.contrib.auth.models import User
 from .models import Category, Expense, Budget, Income
 from .serializers import CategorySerializer, ExpenseSerializer, BudgetSerializer, IncomeSerializer, RegisterSerializer
+from .utils import get_current_period_start
 
 # Die ModelViewSet is a Django REST Framework shortcut that automatically creates API behavior for a model - instead of writing 5 seperate functions.
 
@@ -49,13 +50,24 @@ class ExpenseViewSet(viewsets.ModelViewSet):
 
 class BudgetViewSet(viewsets.ModelViewSet):
     serializer_class = BudgetSerializer
-    permission_classes = [permissions.IsAuthenticated]  
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Budget.objects.filter(user=self.request.user)
+        queryset = Budget.objects.filter(user=self.request.user)
+
+        period_start = self.request.query_params.get('period_start')
+        if period_start:
+            queryset = queryset.filter(period_start=period_start)
+
+        return queryset
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        income, created = Income.objects.get_or_create(
+            user=self.request.user,
+            defaults={'monthly_income': 0}
+        )
+        period_start = get_current_period_start(income.budget_cycle_day)
+        serializer.save(user=self.request.user, period_start=period_start)
 
 class IncomeView(APIView):
     permission_classes = [permissions.IsAuthenticated]

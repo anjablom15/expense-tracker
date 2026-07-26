@@ -185,9 +185,13 @@ class ApiService {
 
   // =============== Budget ===============
 
-  Future<List<Budget>> getBudgets() async {
+  Future<List<Budget>> getBudgets({String? periodStart}) async {
+    final url = periodStart != null
+        ? '$baseUrl/budgets/?period_start=$periodStart'
+        : '$baseUrl/budgets/';
+
     final response = await http.get(
-      Uri.parse('$baseUrl/budgets/'),
+      Uri.parse(url),
       headers: await _getHeaders(),
     );
 
@@ -253,11 +257,11 @@ class ApiService {
     }
   }
 
-  Future<Income> updateIncome(double amount) async {
+  Future<Income> updateIncome(Income income) async {
     final response = await http.put(
       Uri.parse('$baseUrl/income/'),
       headers: await _getHeaders(),
-      body: jsonEncode({'monthly_income': amount}),
+      body: jsonEncode(income.toJson()),
     );
 
     if (response.statusCode == 200) {

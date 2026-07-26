@@ -32,16 +32,17 @@ class Budget(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='budgets')
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='budgets')
     monthly_limit = models.DecimalField(max_digits=10, decimal_places=2)
+    period_start = models.DateField()
 
     class Meta:
-        unique_together = ('user', 'category')
-    
-    def __str__(self):
-        return f"{self.category.name} budget: {self.monthly_limit}"
+        unique_together = ('user', 'category', 'period_start')
 
+    def __str__(self):
+        return f"{self.category.name} budget: {self.monthly_limit} ({self.period_start})"
 class Income(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='income')
     monthly_income = models.DecimalField(max_digits=10, decimal_places=2)
+    budget_cycle_day = models.IntegerField(default=1)
 
     def __str__(self):
-        return f"{self.user.username}'s income: {self.monthly_income}"  
+        return f"{self.user.username}'s income: {self.monthly_income}"

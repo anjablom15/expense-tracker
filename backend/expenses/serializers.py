@@ -33,14 +33,15 @@ class ExpenseSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at']
 
 class BudgetSerializer(serializers.ModelSerializer):
-    category_name = serializers.CharField(source='category.name', read_only=True) # Voeg 'n veld by wat die kategorie naam van die budget sal wys. Dit is nie 'n veld in die model nie, maar dit is 'n veld wat jy kan gebruik in die serializer.
+    category_name = serializers.CharField(source='category.name', read_only=True)
+
     class Meta:
         model = Budget
-        fields = ['id', 'category', 'category_name', 'monthly_limit']
-        read_only_fields = ['id']
+        fields = ['id', 'category', 'category_name', 'monthly_limit', 'period_start']
+        read_only_fields = ['id', 'period_start']
 
 class IncomeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Income
-        fields = ['id', 'monthly_income']
+        fields = ['id', 'monthly_income', 'budget_cycle_day']
         read_only_fields = ['id']
