@@ -1,11 +1,31 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import viewsets, permissions
+from django.contrib.auth.models import User
 from .models import Category, Expense, Budget, Income
-from .serializers import CategorySerializer, ExpenseSerializer, BudgetSerializer, IncomeSerializer
+from .serializers import CategorySerializer, ExpenseSerializer, BudgetSerializer, IncomeSerializer, RegisterSerializer
 
 # Die ModelViewSet is a Django REST Framework shortcut that automatically creates API behavior for a model - instead of writing 5 seperate functions.
 
+class RegisterView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        if User.objects.filter(username=request.data.get('username')).exists():
+            return Response(
+                {'error': 'Username already taken'},
+                status=400,
+            )
+
+        serializer = RegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {'message': 'User created successfully'},
+                status=201,
+            )
+        return Response(serializer.errors, status=400)
+    
 class CategoryViewSet(viewsets.ModelViewSet):
     serializer_class = CategorySerializer
     permission_classes = [permissions.IsAuthenticated]  # User must be logged in to use any of the eindpoints at all.

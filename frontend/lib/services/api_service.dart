@@ -29,6 +29,27 @@ class ApiService {
 
   // =============== Authentication ===============
 
+  Future<String?> register(String username, String password) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/register/'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'username': username, 'password': password}),
+    );
+
+    if (response.statusCode == 201) {
+      return null;
+    } else {
+      final data = jsonDecode(response.body);
+      if (data['error'] != null) {
+        return data['error'];
+      }
+      if (data['password'] != null) {
+        return data['password'][0];
+      }
+      return 'Registration failed';
+    }
+  }
+
   Future<bool> login(String username, String password) async {
     final response = await http.post(
       Uri.parse('https://expense-tracker-api-ut1p.onrender.com/api/token/'),

@@ -1,9 +1,23 @@
 from rest_framework import serializers
 from .models import Category, Expense, Budget, Income
+from django.contrib.auth.models import User
 
 # Die velde -> die velde wat jy wil hê die serializer moet insluit. Die read_only_fields -> die velde wat jy nie wil hê die gebruiker moet kan verander nie.
 #              user is nie in die fields nie, want dit sal outomaties ingestel word op die ingelogde gebruiker in die view.
 #              jy wil nie he die user kan die user veld verander nie, want dit sal jou data beskadig.
+
+class RegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=8)
+
+    class Meta:
+        model = User
+        fields = ['username', 'password']
+
+    def create(self, validated_data):
+        return User.objects.create_user(
+            username=validated_data['username'],
+            password=validated_data['password'],
+        )
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:

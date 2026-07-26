@@ -1,31 +1,51 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-import 'home_screen.dart';
-import 'register_screen.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _RegisterScreenState extends State<RegisterScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   final _apiService = ApiService();
 
   bool _isLoading = false;
   String? _errorMessage;
 
-  Future<void> _handleLogin() async {
+  Future<void> _handleRegister() async {
+    if (_usernameController.text.trim().isEmpty) {
+      setState(() {
+        _errorMessage = 'Please enter a username';
+      });
+      return;
+    }
+
+    if (_passwordController.text.length < 8) {
+      setState(() {
+        _errorMessage = 'Password must be at least 8 characters';
+      });
+      return;
+    }
+
+    if (_passwordController.text != _confirmPasswordController.text) {
+      setState(() {
+        _errorMessage = 'Passwords do not match';
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    final success = await _apiService.login(
-      _usernameController.text,
+    final error = await _apiService.register(
+      _usernameController.text.trim(),
       _passwordController.text,
     );
 
@@ -33,18 +53,20 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = false;
     });
 
-    if (success) {
+    if (error == null) {
       if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
+      Navigator.pop(context, true);
+    } else {
+      setState(() {
+        _errorMessage = error;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(title: const Text('Create Account')),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -52,12 +74,6 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'Expense Tracker',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 32),
               TextField(
                 controller: _usernameController,
                 decoration: const InputDecoration(
@@ -74,6 +90,15 @@ class _LoginScreenState extends State<LoginScreen> {
                   border: OutlineInputBorder(),
                 ),
               ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _confirmPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Confirm Password',
+                  border: OutlineInputBorder(),
+                ),
+              ),
               const SizedBox(height: 24),
               if (_errorMessage != null)
                 Padding(
@@ -85,31 +110,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ElevatedButton(
-                onPressed: _isLoading ? null : _handleLogin,
+                onPressed: _isLoading ? null : _handleRegister,
                 child: _isLoading
                     ? const SizedBox(
                         height: 20,
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Log In'),
-              ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () async {
-                  final registered = await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const RegisterScreen(),
-                    ),
-                  );
-                  if (registered == true) {
-                    setState(() {
-                      _errorMessage = null;
-                    });
-                  }
-                },
-                child: const Text("Don't have an account? Sign up"),
+                    : const Text('Create Account'),
               ),
             ],
           ),
