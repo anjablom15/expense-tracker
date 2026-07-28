@@ -5,6 +5,11 @@ import '../models/budget.dart';
 import '../models/income.dart';
 import '../services/api_service.dart';
 import '../utils/budget_period.dart';
+import 'add_expense_screen.dart';
+import 'categories_screen.dart';
+import 'budgets_screen.dart';
+import 'home_screen.dart';
+import 'login_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -86,6 +91,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _viewingPeriodStart = _currentPeriodStart;
     });
     _loadData();
+  }
+
+  Future<void> _handleLogout() async {
+    await _apiService.logout();
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
+  Future<void> _openAddExpenseScreen() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AddExpenseScreen()),
+    );
+
+    if (result == true) {
+      _loadData();
+    }
   }
 
   List<Expense> _expensesForViewingPeriod() {
@@ -189,7 +215,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Dashboard')),
+      appBar: AppBar(
+        title: const Text('Dashboard'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.receipt_long),
+            tooltip: 'View Expenses',
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const HomeScreen()),
+              );
+              _loadData();
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.category),
+            tooltip: 'Manage Categories',
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CategoriesScreen(),
+                ),
+              );
+              _loadData();
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.account_balance_wallet),
+            tooltip: 'Manage Budgets',
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const BudgetsScreen()),
+              );
+              _loadData();
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Log Out',
+            onPressed: _handleLogout,
+          ),
+        ],
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
@@ -197,6 +267,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           : _expenses.isEmpty
           ? const Center(child: Text('No expenses yet to show'))
           : _buildDashboard(),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _openAddExpenseScreen,
+        child: const Icon(Icons.add),
+      ),
     );
   }
 
