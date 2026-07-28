@@ -35,6 +35,10 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
   final _cycleDayController = TextEditingController();
   bool _isEditingCycleDay = false;
 
+  DateTime _viewingPeriodStart = DateTime.now();
+  bool get _isViewingCurrentPeriod =>
+      formatDate(_viewingPeriodStart) == formatDate(_currentPeriodStart);
+
   @override
   void initState() {
     super.initState();
@@ -49,15 +53,15 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
 
     try {
       final income = await _apiService.getIncome();
-      final periodStart = getCurrentPeriodStart(income.budgetCycleDay);
-      final periodStartStr = formatDate(periodStart);
+      final actualCurrentPeriod = getCurrentPeriodStart(income.budgetCycleDay);
+      final periodStartStr = formatDate(_viewingPeriodStart);
 
       final budgets = await _apiService.getBudgets(periodStart: periodStartStr);
       final categories = await _apiService.getCategories();
 
       setState(() {
         _income = income;
-        _currentPeriodStart = periodStart;
+        _currentPeriodStart = actualCurrentPeriod;
         _budgets = budgets;
         _categories = categories;
         _isLoading = false;
@@ -66,7 +70,6 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
         }
       });
     } catch (e) {
-      print('BUDGETS ERROR: $e');
       setState(() {
         _errorMessage = 'Could not load budgets';
         _isLoading = false;
@@ -202,6 +205,24 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
     });
   }
 
+  void _goToPreviousPeriod() {
+    final cycleDay = _income?.budgetCycleDay ?? 1;
+    setState(() {
+      _viewingPeriodStart = getPreviousPeriodStart(
+        _viewingPeriodStart,
+        cycleDay,
+      );
+    });
+    _loadBudgets();
+  }
+
+  void _goToCurrentPeriod() {
+    setState(() {
+      _viewingPeriodStart = _currentPeriodStart;
+    });
+    _loadBudgets();
+  }
+
   Future<void> _saveIncome() async {
     final amount = double.tryParse(_incomeController.text);
     if (amount == null || amount < 0) {
@@ -317,15 +338,30 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
     );
   }
 
-  Widget _buildCycleDaySetting() {
+  Widget _buildPeriodNavigator() {
     return Padding(
-      padding: const EdgeInsets.only(top: 12, bottom: 12),
+      padding: const EdgeInsets.only(top: 12, bottom: 4),
       child: Row(
         children: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left),
+            tooltip: 'Previous period',
+            onPressed: _goToPreviousPeriod,
+          ),
           Expanded(
-            child: Text(
-              'Budget period: ${formatDate(_currentPeriodStart)} to ${formatDate(getPeriodEnd(_currentPeriodStart))}',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+            child: Column(
+              children: [
+                Text(
+                  '${formatDate(_viewingPeriodStart)} to ${formatDate(getPeriodEnd(_viewingPeriodStart))}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                if (!_isViewingCurrentPeriod)
+                  TextButton(
+                    onPressed: _goToCurrentPeriod,
+                    child: const Text('Back to current period'),
+                  ),
+              ],
             ),
           ),
           if (!_isEditingCycleDay)
@@ -337,7 +373,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                       _income?.budgetCycleDay.toString() ?? '1';
                 });
               },
-              child: const Text('Change'),
+              child: const Text('Change cycle day'),
             ),
         ],
       ),
@@ -383,7 +419,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _buildIncomeSummary(),
-                  _buildCycleDaySetting(),
+                  _buildPeriodNavigator(),
                   if (_isEditingCycleDay)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
@@ -409,55 +445,70 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                       ),
                     ),
                   const SizedBox(height: 20),
-                  DropdownButtonFormField<Category>(
-                    value: _selectedCategory,
-                    decoration: const InputDecoration(
-                      labelText: 'Category',
-                      border: OutlineInputBorder(),
+
+                  // Add/Edit form — only shown and usable while viewing the current period.
+                  if (_isViewingCurrentPeriod) ...[
+                    DropdownButtonFormField<Category>(
+                      value: _selectedCategory,
+                      decoration: const InputDecoration(
+                        labelText: 'Category',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: _categories.map((category) {
+                        return DropdownMenuItem(
+                          value: category,
+                          child: Text(category.name),
+                        );
+                      }).toList(),
+                      onChanged: (category) {
+                        setState(() {
+                          _selectedCategory = category;
+                        });
+                      },
                     ),
-                    items: _categories.map((category) {
-                      return DropdownMenuItem(
-                        value: category,
-                        child: Text(category.name),
-                      );
-                    }).toList(),
-                    onChanged: (category) {
-                      setState(() {
-                        _selectedCategory = category;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _limitController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _limitController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'Monthly Limit',
+                        prefixText: 'R',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
-                    decoration: const InputDecoration(
-                      labelText: 'Monthly Limit',
-                      prefixText: 'R',
-                      border: OutlineInputBorder(),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      onPressed: _isAdding ? null : _handleAddBudget,
+                      child: _isAdding
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(_isEditing ? 'Update Budget' : 'Save Budget'),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  ElevatedButton(
-                    onPressed: _isAdding ? null : _handleAddBudget,
-                    child: _isAdding
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(_isEditing ? 'Update Budget' : 'Save Budget'),
-                  ),
-                  if (_isEditing) ...[
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      tooltip: 'Cancel edit',
-                      onPressed: _cancelEditing,
+                    if (_isEditing) ...[
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        tooltip: 'Cancel edit',
+                        onPressed: _cancelEditing,
+                      ),
+                    ],
+                  ] else
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Text(
+                        'Viewing a past period — budgets can only be edited for the current period.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontStyle: FontStyle.italic,
+                          color: Colors.grey,
+                        ),
+                      ),
                     ),
-                  ],
 
                   if (_errorMessage != null)
                     Padding(
@@ -477,32 +528,44 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                               final budget = _budgets[index];
                               return ListTile(
                                 title: Text(budget.categoryName),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      'R${budget.monthlyLimit.toStringAsFixed(2)}/month',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
+                                trailing: _isViewingCurrentPeriod
+                                    ? Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            'R${budget.monthlyLimit.toStringAsFixed(2)}/month',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.edit_outlined,
+                                            ),
+                                            tooltip: 'Edit Budget',
+                                            onPressed: () =>
+                                                _startEditingBudget(budget),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.delete_outline,
+                                              color: Colors.red,
+                                            ),
+                                            tooltip: 'Delete budget',
+                                            onPressed: () =>
+                                                _confirmDeleteBudget(
+                                                  budget,
+                                                  index,
+                                                ),
+                                          ),
+                                        ],
+                                      )
+                                    : Text(
+                                        'R${budget.monthlyLimit.toStringAsFixed(2)}/month',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.edit_outlined),
-                                      tooltip: 'Edit Budget',
-                                      onPressed: () =>
-                                          _startEditingBudget(budget),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.delete_outline,
-                                        color: Colors.red,
-                                      ),
-                                      tooltip: 'Delete budget',
-                                      onPressed: () =>
-                                          _confirmDeleteBudget(budget, index),
-                                    ),
-                                  ],
-                                ),
                               );
                             },
                           ),
