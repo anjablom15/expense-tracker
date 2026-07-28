@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../models/expense.dart';
 import '../models/budget.dart';
+import '../models/income.dart';
 import '../services/api_service.dart';
+import '../utils/budget_period.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
+  @override
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
@@ -15,9 +18,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   List<Expense> _expenses = [];
   List<Budget> _budgets = [];
+  Income? _income;
   bool _isLoading = true;
   String? _errorMessage;
-  DateTime _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
+
+  DateTime _currentPeriodStart = DateTime.now();
+  DateTime _viewingPeriodStart = DateTime.now();
+  bool _hasInitializedPeriod = false;
+
+  bool get _isViewingCurrentPeriod =>
+      formatDate(_viewingPeriodStart) == formatDate(_currentPeriodStart);
 
   @override
   void initState() {
@@ -32,15 +42,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
 
     try {
+      final income = await _apiService.getIncome();
+      final actualCurrentPeriod = getCurrentPeriodStart(income.budgetCycleDay);
+
+      if (!_hasInitializedPeriod) {
+        _viewingPeriodStart = actualCurrentPeriod;
+        _hasInitializedPeriod = true;
+      }
+
+      final periodStartStr = formatDate(_viewingPeriodStart);
+
       final expenses = await _apiService.getExpenses();
-      final budgets = await _apiService.getBudgets();
+      final budgets = await _apiService.getBudgets(periodStart: periodStartStr);
+
       setState(() {
+        _income = income;
+        _currentPeriodStart = actualCurrentPeriod;
         _expenses = expenses;
         _budgets = budgets;
         _isLoading = false;
       });
     } catch (e) {
-      print('DASHBOARD ERROR: $e');
       setState(() {
         _errorMessage = 'Could not load dashboard data';
         _isLoading = false;
@@ -48,9 +70,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  void _goToPreviousPeriod() {
+    final cycleDay = _income?.budgetCycleDay ?? 1;
+    setState(() {
+      _viewingPeriodStart = getPreviousPeriodStart(
+        _viewingPeriodStart,
+        cycleDay,
+      );
+    });
+    _loadData();
+  }
+
+  void _goToCurrentPeriod() {
+    setState(() {
+      _viewingPeriodStart = _currentPeriodStart;
+    });
+    _loadData();
+  }
+
+  List<Expense> _expensesForViewingPeriod() {
+    final periodEnd = getPeriodEnd(_viewingPeriodStart);
+    return _expenses.where((expense) {
+      final date = DateTime.parse(expense.date);
+      return !date.isBefore(_viewingPeriodStart) && !date.isAfter(periodEnd);
+    }).toList();
+  }
+
   Map<String, double> _totalsByCategory() {
     final Map<String, double> totals = {};
-    for (final expense in _expensesForSelectedMonth()) {
+    for (final expense in _expensesForViewingPeriod()) {
       totals.update(
         expense.categoryName,
         (existing) => existing + expense.amount,
@@ -61,55 +109,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   double _totalSpent() {
-    return _expensesForSelectedMonth().fold(
+    return _expensesForViewingPeriod().fold(
       0.0,
       (sum, expense) => sum + expense.amount,
     );
   }
 
   double _spentForCategory(int categoryId) {
-    return _expensesForSelectedMonth()
+    return _expensesForViewingPeriod()
         .where((expense) => expense.category == categoryId)
         .fold(0.0, (sum, expense) => sum + expense.amount);
-  }
-
-  List<DateTime> _availableMonths() {
-    final Set<DateTime> months = {};
-
-    for (final expense in _expenses) {
-      final date = DateTime.parse(expense.date);
-      months.add(DateTime(date.year, date.month));
-    }
-
-    final list = months.toList();
-    list.sort((a, b) => b.compareTo(a));
-    return list;
-  }
-
-  List<Expense> _expensesForSelectedMonth() {
-    return _expenses.where((expense) {
-      final date = DateTime.parse(expense.date);
-      return date.year == _selectedMonth.year &&
-          date.month == _selectedMonth.month;
-    }).toList();
-  }
-
-  String _monthLabel(DateTime date) {
-    const months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-    return '${months[date.month - 1]} ${date.year}';
   }
 
   Widget _buildBudgetSummary() {
@@ -194,7 +203,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildDashboard() {
     final totals = _totalsByCategory();
     final total = _totalSpent();
-    final availableMonths = _availableMonths();
 
     final colors = [
       Colors.teal,
@@ -212,25 +220,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          DropdownButtonFormField<DateTime>(
-            value: _selectedMonth,
-            decoration: const InputDecoration(
-              labelText: 'Month',
-              border: OutlineInputBorder(),
-            ),
-            items: availableMonths.map((month) {
-              return DropdownMenuItem(
-                value: month,
-                child: Text(_monthLabel(month)),
-              );
-            }).toList(),
-            onChanged: (month) {
-              if (month != null) {
-                setState(() {
-                  _selectedMonth = month;
-                });
-              }
-            },
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                tooltip: 'Previous period',
+                onPressed: _goToPreviousPeriod,
+              ),
+              Expanded(
+                child: Column(
+                  children: [
+                    Text(
+                      '${formatDate(_viewingPeriodStart)} to ${formatDate(getPeriodEnd(_viewingPeriodStart))}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    if (!_isViewingCurrentPeriod)
+                      TextButton(
+                        onPressed: _goToCurrentPeriod,
+                        child: const Text('Back to current period'),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 20),
           _buildBudgetSummary(),
@@ -240,48 +253,55 @@ class _DashboardScreenState extends State<DashboardScreen> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          SizedBox(
-            height: 220,
-            child: PieChart(
-              PieChartData(
-                sections: List.generate(categoryNames.length, (index) {
-                  final name = categoryNames[index];
-                  final amount = totals[name]!;
-                  final percentage = (amount / total) * 100;
-                  return PieChartSectionData(
-                    value: amount,
-                    color: colors[index % colors.length],
-                    title: '${percentage.toStringAsFixed(0)}%',
-                    radius: 70,
-                    titlePositionPercentageOffset: 1.3,
-                    titleStyle: TextStyle(
+          if (categoryNames.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(child: Text('No expenses in this period')),
+            )
+          else ...[
+            SizedBox(
+              height: 220,
+              child: PieChart(
+                PieChartData(
+                  sections: List.generate(categoryNames.length, (index) {
+                    final name = categoryNames[index];
+                    final amount = totals[name]!;
+                    final percentage = (amount / total) * 100;
+                    return PieChartSectionData(
+                      value: amount,
                       color: colors[index % colors.length],
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  );
-                }),
+                      title: '${percentage.toStringAsFixed(0)}%',
+                      radius: 70,
+                      titlePositionPercentageOffset: 1.3,
+                      titleStyle: TextStyle(
+                        color: colors[index % colors.length],
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    );
+                  }),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 24),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: categoryNames.length,
-            itemBuilder: (context, index) {
-              final name = categoryNames[index];
-              final amount = totals[name]!;
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: colors[index % colors.length],
-                  radius: 8,
-                ),
-                title: Text(name),
-                trailing: Text('R${amount.toStringAsFixed(2)}'),
-              );
-            },
-          ),
+            const SizedBox(height: 24),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: categoryNames.length,
+              itemBuilder: (context, index) {
+                final name = categoryNames[index];
+                final amount = totals[name]!;
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: colors[index % colors.length],
+                    radius: 8,
+                  ),
+                  title: Text(name),
+                  trailing: Text('R${amount.toStringAsFixed(2)}'),
+                );
+              },
+            ),
+          ],
         ],
       ),
     );
