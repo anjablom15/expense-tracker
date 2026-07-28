@@ -526,57 +526,57 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                       ),
                     ),
                   const SizedBox(height: 20),
-                  Expanded(
-                    child: _budgets.isEmpty
-                        ? const Center(child: Text('No budgets set yet'))
-                        : ListView.builder(
-                            itemCount: _budgets.length,
-                            itemBuilder: (context, index) {
-                              final budget = _budgets[index];
-                              return ListTile(
-                                title: Text(budget.categoryName),
-                                trailing: _isViewingCurrentPeriod
-                                    ? Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            'R${budget.monthlyLimit.toStringAsFixed(2)}/month',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                            ),
+                  _budgets.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 20),
+                          child: Center(child: Text('No budgets set yet')),
+                        )
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _budgets.length,
+                          itemBuilder: (context, index) {
+                            final budget = _budgets[index];
+                            return ListTile(
+                              title: Text(budget.categoryName),
+                              trailing: _isViewingCurrentPeriod
+                                  ? Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'R${budget.monthlyLimit.toStringAsFixed(2)}/month',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
                                           ),
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.edit_outlined,
-                                            ),
-                                            tooltip: 'Edit Budget',
-                                            onPressed: () =>
-                                                _startEditingBudget(budget),
-                                          ),
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.delete_outline,
-                                              color: Colors.red,
-                                            ),
-                                            tooltip: 'Delete budget',
-                                            onPressed: () =>
-                                                _confirmDeleteBudget(
-                                                  budget,
-                                                  index,
-                                                ),
-                                          ),
-                                        ],
-                                      )
-                                    : Text(
-                                        'R${budget.monthlyLimit.toStringAsFixed(2)}/month',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
                                         ),
+                                        IconButton(
+                                          icon: const Icon(Icons.edit_outlined),
+                                          tooltip: 'Edit Budget',
+                                          onPressed: () =>
+                                              _startEditingBudget(budget),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.delete_outline,
+                                            color: Colors.red,
+                                          ),
+                                          tooltip: 'Delete budget',
+                                          onPressed: () => _confirmDeleteBudget(
+                                            budget,
+                                            index,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : Text(
+                                      'R${budget.monthlyLimit.toStringAsFixed(2)}/month',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
                                       ),
-                              );
-                            },
-                          ),
-                  ),
+                                    ),
+                            );
+                          },
+                        ),
                 ],
               ),
             ),
