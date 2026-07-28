@@ -38,6 +38,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
   DateTime _viewingPeriodStart = DateTime.now();
   bool get _isViewingCurrentPeriod =>
       formatDate(_viewingPeriodStart) == formatDate(_currentPeriodStart);
+  bool _hasInitializedPeriod = false;
 
   @override
   void initState() {
@@ -54,6 +55,12 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
     try {
       final income = await _apiService.getIncome();
       final actualCurrentPeriod = getCurrentPeriodStart(income.budgetCycleDay);
+
+      if (!_hasInitializedPeriod) {
+        _viewingPeriodStart = actualCurrentPeriod;
+        _hasInitializedPeriod = true;
+      }
+
       final periodStartStr = formatDate(_viewingPeriodStart);
 
       final budgets = await _apiService.getBudgets(periodStart: periodStartStr);
